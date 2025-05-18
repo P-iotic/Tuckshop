@@ -1,5 +1,4 @@
 import java.util.ArrayList;
-import java.util.Scanner;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.io.*;
@@ -9,21 +8,12 @@ public class TuckShop {
     private ArrayList<Sale> sales;
     private String adminPasswordHash;
     private static final String DATA_FILE = "tuckshop_data.json";
-    public ArrayList<Item> getItems() { return items; }
-    public ArrayList<String> getMenuItems() {
-        ArrayList<String> menu = new ArrayList<>();
-        for (int i = 0; i < items.size(); i++) {
-            menu.add((i + 1) + ". " + items.get(i).toString());
-        }
-        return menu;
-    }
-    
+
     public TuckShop() {
         items = new ArrayList<>();
         sales = new ArrayList<>();
-        // Default admin password: "admin123" (hashed)
         adminPasswordHash = hashPassword("admin123");
-        loadData(); // Load inventory from file
+        loadData();
         if (items.isEmpty()) initializeDefaultItems();
     }
 
@@ -39,141 +29,33 @@ public class TuckShop {
         saveData();
     }
 
-    public void showMenu() {
-        System.out.println("\n--- Venterburg Tuck Shop Menu ---");
-        if (items.isEmpty()) {
-            System.out.println("No items available.");
-            return;
-        }
-        for (int i = 0; i < items.size(); i++) {
-            System.out.println((i + 1) + ". " + items.get(i).toString());
-        }
+    public ArrayList<Item> getItems() { return items; }
+    public ArrayList<Sale> getSales() { return sales; }
+
+    public boolean validateAdminPassword(String password) {
+        return hashPassword(password).equals(adminPasswordHash);
     }
 
-    public void placeOrder() {
-        Scanner scanner = new Scanner(System.in);
-        ArrayList<Sale> cart = new ArrayList<>();
-        double total = 0;
+    public void addItem(String id, String name, double price, int stock) {
+        items.add(new Item(id, name, price, stock));
+        saveData();
+    }
 
-        while (true) {
-            showMenu();
-            System.out.print("\nEnter item number and quantity (e.g., '1 2' for 2 of item 1, 'q' to checkout): ");
-            String input = scanner.nextLine().trim();
-
-            if (input.equalsIgnoreCase("q")) break;
-
-            try {
-                String[] parts = input.split("\\s+");
-                if (parts.length != 2) throw new IllegalArgumentException("Enter item number and quantity");
-                int itemIndex = Integer.parseInt(parts[0]) - 1;
-                int quantity = Integer.parseInt(parts[1]);
-
-                if (itemIndex < 0 || itemIndex >= items.size()) {
-                    System.out.println("Invalid item number.");
-                    continue;
-                }
-                if (quantity <= 0) {
-                    System.out.println("Quantity must be positive.");
-                    continue;
-                }
-
-                Item item = items.get(itemIndex);
-                item.reduceStock(quantity);
-                cart.add(new Sale(item, quantity));
-                total += item.getPrice() * quantity;
-                System.out.println("Added: " + quantity + " x " + item.getName() + " | Current total: R" + total);
-            } catch (NumberFormatException e) {
-                System.out.println("Invalid input. Use numbers for item and quantity.");
-            } catch (IllegalArgumentException e) {
-                System.out.println("Error: " + e.getMessage());
-            }
-        }
-
-        if (!cart.isEmpty()) {
-            System.out.println("\n--- Order Summary ---");
-            for (Sale sale : cart) {
-                System.out.println(sale.getItem().getName() + " (x" + sale.getQuantity() + ") - R" + (sale.getItem().getPrice() * sale.getQuantity()));
-            }
-            System.out.println("Total: R" + total);
-            sales.addAll(cart);
+    public void restockItem(int index, int quantity) {
+        if (index >= 0 && index < items.size()) {
+            items.get(index).addStock(quantity);
             saveData();
         } else {
-            System.out.println("No items added to cart.");
+            throw new IllegalArgumentException("Invalid item index");
         }
     }
 
-    public void adminMenu() {
-        Scanner scanner = new Scanner(System.in);
-        System.out.print("Enter admin password: ");
-        String password = scanner.nextLine();
-        if (!hashPassword(password).equals(adminPasswordHash)) {
-            System.out.println("Incorrect password.");
-            return;
-        }
-
-        while (true) {
-            System.out.println("\n--- Admin Menu ---");
-            System.out.println("1. Add Item");
-            System.out.println("2. Restock Item");
-            System.out.println("3. View Sales");
-            System.out.println("4. Exit Admin Menu");
-            System.out.print("Choose an option: ");
-            String choice = scanner.nextLine();
-
-            try {
-                switch (choice) {
-                    case "1":
-                        System.out.print("Enter item ID: ");
-                        String id = scanner.nextLine();
-                        System.out.print("Enter item name: ");
-                        String name = scanner.nextLine();
-                        System.out.print("Enter price: ");
-                        double price = Double.parseDouble(scanner.nextLine());
-                        System.out.print("Enter stock: ");
-                        int stock = Integer.parseInt(scanner.nextLine());
-                        items.add(new Item(id, name, price, stock));
-                        saveData();
-                        System.out.println("Item added: " + name);
-                        break;
-                    case "2":
-                        showMenu();
-                        System.out.print("Enter item number: ");
-                        int itemIndex = Integer.parseInt(scanner.nextLine()) - 1;
-                        if (itemIndex >= 0 && itemIndex < items.size()) {
-                            System.out.print("Enter stock to add: ");
-                            int quantity = Integer.parseInt(scanner.nextLine());
-                            items.get(itemIndex).addStock(quantity);
-                            saveData();
-                            System.out.println("Stock updated for " + items.get(itemIndex).getName());
-                        } else {
-                            System.out.println("Invalid item number.");
-                        }
-                        break;
-                    case "3":
-                        System.out.println("\n--- Sales History ---");
-                        if (sales.isEmpty()) {
-                            System.out.println("No sales recorded.");
-                        } else {
-                            double totalRevenue = 0;
-                            for (Sale sale : sales) {
-                                double saleTotal = sale.getItem().getPrice() * sale.getQuantity();
-                                System.out.println(sale.getItem().getName() + " (x" + sale.getQuantity() + ") - R" + saleTotal);
-                                totalRevenue += saleTotal;
-                            }
-                            System.out.println("Total Revenue: R" + totalRevenue);
-                        }
-                        break;
-                    case "4":
-                        return;
-                    default:
-                        System.out.println("Invalid option.");
-                }
-            } catch (NumberFormatException e) {
-                System.out.println("Invalid input. Use numbers where required.");
-            } catch (IllegalArgumentException e) {
-                System.out.println("Error: " + e.getMessage());
-            }
-        }
+    public void placeOrder(int index, int quantity) {
+        if (index < 0 || index >= items.size()) throw new IllegalArgumentException("Invalid item index");
+        Item item = items.get(index);
+        item.reduceStock(quantity);
+        sales.add(new Sale(item, quantity));
+        saveData();
     }
 
     private String hashPassword(String password) {
@@ -244,6 +126,7 @@ public class TuckShop {
         }
     }
 
+    // Keep console main for testing
     public static void main(String[] args) {
         TuckShop shop = new TuckShop();
         Scanner scanner = new Scanner(System.in);
@@ -275,17 +158,123 @@ public class TuckShop {
             }
         }
     }
-}
 
-class Sale {
-    private Item item;
-    private int quantity;
-
-    public Sale(Item item, int quantity) {
-        this.item = item;
-        this.quantity = quantity;
+    // Moved console methods to avoid GUI duplication
+    private void showMenu() {
+        System.out.println("\n--- Venterburg Tuck Shop Menu ---");
+        if (items.isEmpty()) {
+            System.out.println("No items available.");
+            return;
+        }
+        for (int i = 0; i < items.size(); i++) {
+            System.out.println((i + 1) + ". " + items.get(i).toString());
+        }
     }
 
-    public Item getItem() { return item; }
-    public int getQuantity() { return quantity; }
+    private void placeOrder() {
+        Scanner scanner = new Scanner(System.in);
+        ArrayList<Sale> cart = new ArrayList<>();
+        double total = 0;
+
+        while (true) {
+            showMenu();
+            System.out.print("\nEnter item number and quantity (e.g., '1 2' for 2 of item 1, 'q' to checkout): ");
+            String input = scanner.nextLine().trim();
+
+            if (input.equalsIgnoreCase("q")) break;
+
+            try {
+                String[] parts = input.split("\\s+");
+                if (parts.length != 2) throw new IllegalArgumentException("Enter item number and quantity");
+                int itemIndex = Integer.parseInt(parts[0]) - 1;
+                int quantity = Integer.parseInt(parts[1]);
+                placeOrder(itemIndex, quantity);
+                cart.add(new Sale(items.get(itemIndex), quantity));
+                total += items.get(itemIndex).getPrice() * quantity;
+                System.out.println("Added: " + quantity + " x " + items.get(itemIndex).getName() + " | Current total: R" + total);
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid input. Use numbers for item and quantity.");
+            } catch (IllegalArgumentException e) {
+                System.out.println("Error: " + e.getMessage());
+            }
+        }
+
+        if (!cart.isEmpty()) {
+            System.out.println("\n--- Order Summary ---");
+            for (Sale sale : cart) {
+                System.out.println(sale.getItem().getName() + " (x" + sale.getQuantity() + ") - R" + (sale.getItem().getPrice() * sale.getQuantity()));
+            }
+            System.out.println("Total: R" + total);
+        } else {
+            System.out.println("No items added to cart.");
+        }
+    }
+
+    private void adminMenu() {
+        Scanner scanner = new Scanner(System.in);
+        System.out.print("Enter admin password: ");
+        String password = scanner.nextLine();
+        if (!validateAdminPassword(password)) {
+            System.out.println("Incorrect password.");
+            return;
+        }
+
+        while (true) {
+            System.out.println("\n--- Admin Menu ---");
+            System.out.println("1. Add Item");
+            System.out.println("2. Restock Item");
+            System.out.println("3. View Sales");
+            System.out.println("4. Exit Admin Menu");
+            System.out.print("Choose an option: ");
+            String choice = scanner.nextLine();
+
+            try {
+                switch (choice) {
+                    case "1":
+                        System.out.print("Enter item ID: ");
+                        String id = scanner.nextLine();
+                        System.out.print("Enter item name: ");
+                        String name = scanner.nextLine();
+                        System.out.print("Enter price: ");
+                        double price = Double.parseDouble(scanner.nextLine());
+                        System.out.print("Enter stock: ");
+                        int stock = Integer.parseInt(scanner.nextLine());
+                        addItem(id, name, price, stock);
+                        System.out.println("Item added: " + name);
+                        break;
+                    case "2":
+                        showMenu();
+                        System.out.print("Enter item number: ");
+                        int itemIndex = Integer.parseInt(scanner.nextLine()) - 1;
+                        System.out.print("Enter stock to add: ");
+                        int quantity = Integer.parseInt(scanner.nextLine());
+                        restockItem(itemIndex, quantity);
+                        System.out.println("Stock updated for " + items.get(itemIndex).getName());
+                        break;
+                    case "3":
+                        System.out.println("\n--- Sales History ---");
+                        if (sales.isEmpty()) {
+                            System.out.println("No sales recorded.");
+                        } else {
+                            double totalRevenue = 0;
+                            for (Sale sale : sales) {
+                                double saleTotal = sale.getItem().getPrice() * sale.getQuantity();
+                                System.out.println(sale.getItem().getName() + " (x" + sale.getQuantity() + ") - R" + saleTotal);
+                                totalRevenue += saleTotal;
+                            }
+                            System.out.println("Total Revenue: R" + totalRevenue);
+                        }
+                        break;
+                    case "4":
+                        return;
+                    default:
+                        System.out.println("Invalid option.");
+                }
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid input. Use numbers where required.");
+            } catch (IllegalArgumentException e) {
+                System.out.println("Error: " + e.getMessage());
+            }
+        }
+    }
 }
