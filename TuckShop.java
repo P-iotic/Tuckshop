@@ -9,7 +9,15 @@ public class TuckShop {
     private ArrayList<Sale> sales;
     private String adminPasswordHash;
     private static final String DATA_FILE = "tuckshop_data.json";
-
+    public ArrayList<Item> getItems() { return items; }
+    public ArrayList<String> getMenuItems() {
+        ArrayList<String> menu = new ArrayList<>();
+        for (int i = 0; i < items.size(); i++) {
+            menu.add((i + 1) + ". " + items.get(i).toString());
+        }
+        return menu;
+    }
+    
     public TuckShop() {
         items = new ArrayList<>();
         sales = new ArrayList<>();
