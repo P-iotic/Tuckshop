@@ -1,3 +1,4 @@
+import java.io.*;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -8,13 +9,9 @@ public class Database {
     public Database() {
         try (Connection conn = DriverManager.getConnection(DB_URL)) {
             Statement stmt = conn.createStatement();
-            // Create items table
             stmt.execute("CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY, name TEXT, price REAL, quantity INTEGER)");
-            // Create transactions table
             stmt.execute("CREATE TABLE IF NOT EXISTS transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, item_id INTEGER, quantity INTEGER, total REAL, timestamp TEXT)");
-            // Create users table
             stmt.execute("CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, password TEXT, role TEXT)");
-            // Insert default admin user
             stmt.execute("INSERT OR IGNORE INTO users (username, password, role) VALUES ('admin', 'admin123', 'admin')");
         } catch (SQLException e) {
             System.out.println("Database error: " + e.getMessage());
@@ -32,6 +29,19 @@ public class Database {
             pstmt.executeUpdate();
         } catch (SQLException e) {
             System.out.println("Error adding item: " + e.getMessage());
+        }
+    }
+
+    public boolean itemExists(int id) {
+        try (Connection conn = DriverManager.getConnection(DB_URL)) {
+            String sql = "SELECT 1 FROM items WHERE id = ?";
+            PreparedStatement pstmt = conn.prepareStatement(sql);
+            pstmt.setInt(1, id);
+            ResultSet rs = pstmt.executeQuery();
+            return rs.next();
+        } catch (SQLException e) {
+            System.out.println("Error checking item: " + e.getMessage());
+            return false;
         }
     }
 
@@ -102,5 +112,27 @@ public class Database {
             System.out.println("Error generating report: " + e.getMessage());
         }
         return report;
+    }
+
+    public boolean exportSalesReportToCSV(String filename) {
+        try (Connection conn = DriverManager.getConnection(DB_URL);
+             FileWriter fw = new FileWriter(filename);
+             BufferedWriter bw = new BufferedWriter(fw)) {
+            Statement stmt = conn.createStatement();
+            ResultSet rs = stmt.executeQuery("SELECT t.item_id, i.name, SUM(t.quantity) as total_qty, SUM(t.total) as total_sales " +
+                                            "FROM transactions t JOIN items i ON t.item_id = i.id GROUP BY t.item_id");
+            bw.write("Item ID,Item Name,Total Quantity Sold,Total Sales (R)\n");
+            while (rs.next()) {
+                bw.write(String.format("%d,%s,%d,%.2f\n",
+                    rs.getInt("item_id"),
+                    rs.getString("name").replace(",", ""), // Avoid CSV delimiter issues
+                    rs.getInt("total_qty"),
+                    rs.getDouble("total_sales")));
+            }
+            return true;
+        } catch (SQLException | IOException e) {
+            System.out.println("Error exporting CSV: " + e.getMessage());
+            return false;
+        }
     }
 }

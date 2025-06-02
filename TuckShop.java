@@ -19,58 +19,107 @@ public class TuckShop {
     }
 
     public void addItem() {
-        System.out.print("Enter item ID: ");
-        int id = scanner.nextInt();
-        scanner.nextLine(); // Clear buffer
-        System.out.print("Enter item name: ");
-        String name = scanner.nextLine();
-        System.out.print("Enter item price: ");
-        double price = scanner.nextDouble();
-        System.out.print("Enter item quantity: ");
-        int quantity = scanner.nextInt();
-        db.addItem(new Item(id, name, price, quantity));
-        System.out.println("Item added successfully.");
+        try {
+            System.out.print("Enter item ID: ");
+            int id = Integer.parseInt(scanner.nextLine());
+            if (id <= 0) {
+                System.out.println("Error: Item ID must be positive.");
+                return;
+            }
+            if (db.itemExists(id)) {
+                System.out.println("Error: Item ID already exists.");
+                return;
+            }
+            System.out.print("Enter item name: ");
+            String name = scanner.nextLine().trim();
+            if (name.isEmpty()) {
+                System.out.println("Error: Item name cannot be empty.");
+                return;
+            }
+            System.out.print("Enter item price: ");
+            double price = Double.parseDouble(scanner.nextLine());
+            if (price <= 0) {
+                System.out.println("Error: Price must be positive.");
+                return;
+            }
+            System.out.print("Enter item quantity: ");
+            int quantity = Integer.parseInt(scanner.nextLine());
+            if (quantity < 0) {
+                System.out.println("Error: Quantity cannot be negative.");
+                return;
+            }
+            db.addItem(new Item(id, name, price, quantity));
+            System.out.println("Item added successfully.");
+        } catch (NumberFormatException e) {
+            System.out.println("Error: Invalid input format.");
+        }
     }
 
     public void displayItems() {
         List<Item> items = db.getAllItems();
-        System.out.println("\nAvailable Items:");
-        for (Item item : items) {
-            System.out.println(item);
-            if (item.getQuantity() < 5) {
-                System.out.println("⚠️ Low stock alert for " + item.getName());
+        if (items.isEmpty()) {
+            System.out.println("\nNo items available.");
+        } else {
+            System.out.println("\nAvailable Items:");
+            for (Item item : items) {
+                System.out.println(item);
+                if (item.getQuantity() < 5) {
+                    System.out.println("⚠️ Low stock alert for " + item.getName());
+                }
             }
         }
     }
 
     public void buyItem() {
         displayItems();
-        System.out.print("Enter item ID to buy: ");
-        int itemId = scanner.nextInt();
-        System.out.print("Enter quantity: ");
-        int quantity = scanner.nextInt();
-        List<Item> items = db.getAllItems();
-        for (Item item : items) {
-            if (item.getId() == itemId) {
-                if (item.getQuantity() >= quantity) {
-                    double total = quantity * item.getPrice();
-                    db.updateItemQuantity(itemId, item.getQuantity() - quantity);
-                    db.addTransaction(itemId, quantity, total);
-                    System.out.printf("Purchased %d %s for R%.2f\n", quantity, item.getName(), total);
-                } else {
-                    System.out.println("Insufficient stock!");
-                }
+        if (db.getAllItems().isEmpty()) return;
+        try {
+            System.out.print("Enter item ID to buy: ");
+            int itemId = Integer.parseInt(scanner.nextLine());
+            System.out.print("Enter quantity: ");
+            int quantity = Integer.parseInt(scanner.nextLine());
+            if (quantity <= 0) {
+                System.out.println("Error: Quantity must be positive.");
                 return;
             }
+            List<Item> items = db.getAllItems();
+            for (Item item : items) {
+                if (item.getId() == itemId) {
+                    if (item.getQuantity() >= quantity) {
+                        double total = quantity * item.getPrice();
+                        db.updateItemQuantity(itemId, item.getQuantity() - quantity);
+                        db.addTransaction(itemId, quantity, total);
+                        System.out.printf("Purchased %d %s for R%.2f\n", quantity, item.getName(), total);
+                    } else {
+                        System.out.println("Insufficient stock!");
+                    }
+                    return;
+                }
+            }
+            System.out.println("Item not found!");
+        } catch (NumberFormatException e) {
+            System.out.println("Error: Invalid input format.");
         }
-        System.out.println("Item not found!");
     }
 
     public void viewSalesReport() {
         List<String> report = db.getSalesReport();
-        System.out.println("\nSales Report:");
-        for (String line : report) {
-            System.out.println(line);
+        if (report.isEmpty()) {
+            System.out.println("\nNo sales recorded.");
+        } else {
+            System.out.println("\nSales Report:");
+            for (String line : report) {
+                System.out.println(line);
+            }
+        }
+    }
+
+    public void exportSalesReport() {
+        boolean success = db.exportSalesReportToCSV("sales_report.csv");
+        if (success) {
+            System.out.println("Sales report exported to sales_report.csv");
+        } else {
+            System.out.println("Error exporting sales report.");
         }
     }
 
@@ -81,17 +130,21 @@ public class TuckShop {
             return;
         }
         while (true) {
-            System.out.println("\n1. Add Item\n2. View Items\n3. Buy Item\n4. View Sales Report\n5. Exit");
+            System.out.println("\n1. Add Item\n2. View Items\n3. Buy Item\n4. View Sales Report\n5. Export Sales Report\n6. Exit");
             System.out.print("Choose an option: ");
-            int choice = scanner.nextInt();
-            scanner.nextLine(); // Clear buffer
-            switch (choice) {
-                case 1: addItem(); break;
-                case 2: displayItems(); break;
-                case 3: buyItem(); break;
-                case 4: viewSalesReport(); break;
-                case 5: System.out.println("Exiting..."); return;
-                default: System.out.println("Invalid option!");
+            try {
+                int choice = Integer.parseInt(scanner.nextLine());
+                switch (choice) {
+                    case 1: addItem(); break;
+                    case 2: displayItems(); break;
+                    case 3: buyItem(); break;
+                    case 4: viewSalesReport(); break;
+                    case 5: exportSalesReport(); break;
+                    case 6: System.out.println("Exiting..."); return;
+                    default: System.out.println("Invalid option!");
+                }
+            } catch (NumberFormatException e) {
+                System.out.println("Error: Please enter a valid number.");
             }
         }
     }
