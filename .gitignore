@@ -1,4 +1,6 @@
 # Compiled class file
+lib/*
+tuckshop.db
 *.class
 
 # Log file
